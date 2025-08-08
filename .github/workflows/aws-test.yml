@@ -1,7 +1,7 @@
 name: Test AWS Credentials
 
 on:
-  workflow_dispatch:  # allows you to trigger manually
+  workflow_dispatch:  # ← enables the "Run workflow" button
 
 jobs:
   aws-test:
@@ -16,7 +16,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1  # or your region
+          aws-region: us-east-1
 
       - name: Test AWS CLI: Who Am I
         run: aws sts get-caller-identity
