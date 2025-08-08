@@ -3,14 +3,15 @@ name: Tag Based Deployment
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Triggers only on tags like v1.0.0, v2.1.1, etc.
 
 jobs:
   terraform:
+    name: Terraform Deploy
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v3
 
     - name: Set up Terraform
