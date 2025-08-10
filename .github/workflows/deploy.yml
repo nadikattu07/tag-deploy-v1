@@ -2,8 +2,7 @@ name: Tag Based Deployment
 
 on:
   push:
-    tags:
-      - 'v*'                 # e.g., v1.0.0
+    tags: ['v*']   # e.g., v1.0.0
   workflow_dispatch:
 
 jobs:
@@ -11,26 +10,41 @@ jobs:
     name: Terraform Deploy
     runs-on: ubuntu-latest
 
+    # No OIDC permissions
     permissions:
-      contents: read   # no OIDC needed
+      contents: read
 
+    # Global env (no secrets here)
     env:
-      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
       TF_IN_AUTOMATION: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (access keys)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      # Clear anything that could trigger OIDC/assume-role
+      - name: Clear any OIDC/role env
+        run: |
+          echo "AWS_WEB_IDENTITY_TOKEN_FILE=" >> $GITHUB_ENV
+          echo "AWS_ROLE_ARN=" >> $GITHUB_ENV
+          echo "AWS_ROLE_SESSION_NAME=" >> $GITHUB_ENV
+          echo "AWS_PROFILE=" >> $GITHUB_ENV
 
+      # Export static access keys from repo secrets
+      - name: Export AWS static credentials
+        run: |
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}" >> $GITHUB_ENV
+
+      # Helpful for clean logs
+      - name: Disable AWS CLI pager
+        run: aws configure set cli_pager ""
+
+      # Prove we're using the IAM *user* (not an assumed role)
       - name: Verify caller identity
-        run: aws sts get-caller-identity
+        run: aws sts get-caller-identity --no-cli-pager
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
