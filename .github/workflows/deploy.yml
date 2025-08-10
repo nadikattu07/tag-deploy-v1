@@ -3,36 +3,46 @@ name: Tag Based Deployment
 on:
   push:
     tags:
-      - 'v*'  # Triggers only on tags like v1.0.0, v2.1.1, etc.
+      - 'v*'                 # e.g., v1.0.0
+  workflow_dispatch:
 
 jobs:
   terraform:
     name: Terraform Deploy
     runs-on: ubuntu-latest
 
+    # Required for OIDC + role assumption
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      TF_IN_AUTOMATION: true
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.5.5
+      - name: Configure AWS credentials (assume role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::091455609400:role/AWS_admin
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Terraform Init
-      run: terraform init
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.5
+          terraform_wrapper: false
 
-    - name: Terraform Plan
-      run: terraform plan -var="deploy_version=${GITHUB_REF_NAME}"
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Terraform Init
+        run: terraform init -input=false
 
-    - name: Terraform Apply
-      run: terraform apply -auto-approve -var="deploy_version=${GITHUB_REF_NAME}"
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Terraform Plan
+        run: terraform plan -input=false -out=tfplan -var="deploy_version=${GITHUB_REF_NAME}"
+
+      # Apply only on tag pushes (still allowed via workflow_dispatch if desired)
+      - name: Terraform Apply
+        if: startsWith(github.ref, 'refs/tags/')
+        run: terraform apply -input=false -auto-approve tfplan
