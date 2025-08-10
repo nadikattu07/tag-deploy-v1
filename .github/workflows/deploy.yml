@@ -12,8 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write
-      contents: read
+      contents: read   # no OIDC needed
 
     env:
       AWS_REGION: us-east-1
@@ -23,10 +22,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (assume role)
+      - name: Configure AWS credentials (access keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::091455609400:role/AWS_admin
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify caller identity
